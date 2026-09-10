@@ -1,0 +1,784 @@
+{
+  "name": "Churn prevention and retention system",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [-2144, -256],
+      "id": "47da3370-8eac-4ecd-a9b7-199f047687d1",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.risk_tier }}",
+                    "rightValue": "=High",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "2ef321dc-2eac-498c-9fdb-853dffdf8736"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "HIGH "
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "42cb8b25-dce8-416f-b2fa-8d05fcb51973",
+                    "leftValue": "={{ $json.risk_tier }}",
+                    "rightValue": "Medium",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "e71074aa-8fc0-4cd5-bcee-6a0bf09d8f5e",
+                    "leftValue": "={{ $json.risk_tier }}",
+                    "rightValue": "Low",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "ignoreCase": true,
+          "renameFallbackOutput": "UNMATCHED",
+          "allMatchingOutputs": false
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [-1744, -288],
+      "id": "208bdb87-2f27-42de-9d70-4585dafe4082",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=COMPANY :  {{ $json.company_name }}\nPlan : {{ $json.plan }}\nDays since last login : {{ $json.days_since_login }}\nFeature Usage : {{ $json.feature_usage_pct }}\nSupport Tickets : {{ $json.support_tickets_30d }}\nPayment status : {{ $json.payment_status }}\nRisk tier :{{ $json.risk_tier }}",
+        "options": {
+          "systemMessage": "You are writing short warm retention email for a SaaS Customers at risk of churning , Reference their specific situation naturally \nDon't sound like a template.\nKeep it under 120 words. offer a clean next step( reply to this email, or book a call or check out a specific feature). \nNever mention \"risk score\" or internal metrices to the Customers.\nwrite email using company name as a first name always\nGIVE OUTPUT STRICTLY IN JSON FORMAT WITH SUBJECT AND BODY SEPARATELY.\nWrite a short, warm retention email for a business customer. You do NOT have a contact's first name — only the company name. Address the email using the company name (e.g., \"Hi team at {{company_name}}\" or \"Hi {{company_name}} team\") — never invent or assume a first name. Reference their specific situation naturally. Keep it under 120 words. Offer a clear next step."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [-1152, -544],
+      "id": "55fbd068-245d-48f0-9e02-963d76d64605",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-oss-120b",
+        "options": {
+          "maxTokensToSample": 4096
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [-1152, -336],
+      "id": "ea5a6f67-c6a7-47fe-952e-b746867a32bf",
+      "name": "Groq Chat Model",
+      "credentials": {
+        "groqApi": {
+          "id": "GROQ ID",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {
+          "reset": false
+        }
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [-1440, -544],
+      "id": "68b1e06a-ed02-49d4-b34c-e36579b6c848",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "8ac25f71-0bda-4749-abd7-cb0cfb6aea85",
+              "name": "Email",
+              "value": "={{ $json.email_body }}",
+              "type": "string"
+            },
+            {
+              "id": "3c3751e5-d3e6-455a-8e44-460314280585",
+              "name": "subject",
+              "value": "={{ $json.email_subject }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-448, -368],
+      "id": "a8e0c5db-881e-4c12-a5f8-3d4d9786bd42",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Get row(s) in sheet1').item.json.contact_email }}",
+        "subject": "={{ $json.email_subject }}",
+        "message": "={{ $json.email_body }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [-272, -368],
+      "id": "83d372b2-780d-45e1-8d24-833329882df7",
+      "name": "Send a message",
+      "webhookId": "3a17b668-8854-42ac-9676-2ed2ca30b84a",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "YOUR-ID",
+          "name": "Gmail account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "YOUR_CHAT_ID",
+        "text": "HIGH- risk account : ",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [320, -64],
+      "id": "f4e2eea4-db02-4961-bab5-54110aacb09d",
+      "name": "Send a text message",
+      "webhookId": "4418b8a8-5d6b-4742-a58e-d23f5b8b5a98",
+      "credentials": {
+        "telegramApi": {
+          "id": "YOUR ID",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "511ebee3-d0c2-4c67-9741-a699077849e0",
+              "leftValue": "={{ $('Switch').item.json.risk_tier }}",
+              "rightValue": "High",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [48, -192],
+      "id": "27c0b79e-13fb-4b65-87ef-243bff5f4dc6",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $json.company_name }}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [-1056, -336],
+      "id": "e1818e1e-127c-48dc-8914-3c010ed7583c",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "chatId": "YOUR_CHAT_ID",
+        "text": " YOUR TEXT WHICH YOU WANNA SEND TO THE ALERT STAFF",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [-1136, -736],
+      "id": "0e915e45-ee0d-4589-917e-86f774633cf0",
+      "name": "Send a text message1",
+      "webhookId": "410cecbe-bf4b-4a5e-a481-97a4848f2870",
+      "credentials": {
+        "telegramApi": {
+          "id": "YOUR ID",
+          "name": "Telegram account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get all fields currently on this item\nconst input = $input.item.json;\n\n// Try to find the AI's raw text output under whichever key it landed in\nlet raw = input.output || input.text || input.response || input.message || \"\";\n\n// Strip markdown fences if present\nraw = String(raw).replace(/```json/gi, \"\").replace(/```/g, \"\").trim();\n\nlet parsed = {};\ntry {\n  parsed = JSON.parse(raw);\n} catch (e) {\n  parsed = { subject: \"Following up\", body: raw };\n}\n\nreturn {\n  json: {\n    email_subject: parsed.subject || \"Following up\",\n    email_body: parsed.body || parsed.message || raw,\n    company_name: input.company_name || \"your team\",\n    contact_email: input.contact_email || \"\",\n    risk_tier: input.risk_tier || \"\",\n    risk_score: input.risk_score || \"\"\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-784, -368],
+      "id": "019fb71c-7acd-484a-8842-391775278054",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [-608, -368],
+      "id": "36be8785-f164-44d8-81c1-8e1df1003b2d",
+      "name": "Wait",
+      "webhookId": "b47b252b-3b69-42f0-bd5e-9e71a54d8d4b"
+    },
+    {
+      "parameters": {
+        "options": {
+          "reset": false
+        }
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [-1440, -288],
+      "id": "981fee30-2cda-44e2-881b-6c830f06785c",
+      "name": "Loop Over Items1"
+    },
+    {
+      "parameters": {
+        "chatId": "YOUR_CHAT_ID",
+        "text": " YOUR TEXT WHICH YOU WANNA SEND TO THE ALERT STAFF",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [-1136, -160],
+      "id": "9bd60758-c03a-4ec3-b3e4-257a77c1ca6b",
+      "name": "Send a text message2",
+      "webhookId": "410cecbe-bf4b-4a5e-a481-97a4848f2870",
+      "credentials": {
+        "telegramApi": {
+          "id": "YOUR ID",
+          "name": "Telegram account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR SHEET VALUE",
+          "mode": "list",
+          "cachedResultName": "churn-prevention-demo-database",
+          "cachedResultUrl": "YOUR SHEET URL"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "YOUR SHEET VALUE",
+          "mode": "list",
+          "cachedResultName": "Accounts",
+          "cachedResultUrl": "YOUR SHEET URL"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [-1952, -256],
+      "id": "ff8dc0eb-d752-41ed-9d3e-5fc3dd6a775e",
+      "name": "Get row(s) in sheet1",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR ID",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR SHEET VALUE",
+          "mode": "list",
+          "cachedResultName": "churn-prevention-demo-database",
+          "cachedResultUrl": "YOUR SHEET URL"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "YOUR SHEET VALUE",
+          "mode": "list",
+          "cachedResultName": "Accounts",
+          "cachedResultUrl": "YOU"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "account_id": "={{ $('Get row(s) in sheet1').item.json.account_id }}",
+            "outreach_status": "sent"
+          },
+          "matchingColumns": ["account_id"],
+          "schema": [
+            {
+              "id": "account_id",
+              "displayName": "account_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "company_name",
+              "displayName": "company_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "contact_email",
+              "displayName": "contact_email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "plan",
+              "displayName": "plan",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "mrr",
+              "displayName": "mrr",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "signup_date",
+              "displayName": "signup_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "last_login_date",
+              "displayName": "last_login_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "days_since_login",
+              "displayName": "days_since_login",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "login_freq_7d",
+              "displayName": "login_freq_7d",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "feature_usage_pct",
+              "displayName": "feature_usage_pct",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "support_tickets_30d",
+              "displayName": "support_tickets_30d",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "payment_status",
+              "displayName": "payment_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "risk_score",
+              "displayName": "risk_score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "risk_tier",
+              "displayName": "risk_tier",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "last_outreach_date",
+              "displayName": "last_outreach_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "outreach_status",
+              "displayName": "outreach_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "outcome",
+              "displayName": "outcome",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [-64, -368],
+      "id": "c7e30bcf-43bd-4a83-b585-85ef0cd7c7e2",
+      "name": "Update row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR ID",
+          "name": "Google Sheets account 2"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get row(s) in sheet1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Loop Over Items1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [],
+        []
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Send a text message1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message": {
+      "main": [
+        [
+          {
+            "node": "Update row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Loop Over Items1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a text message": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items1": {
+      "main": [
+        [
+          {
+            "node": "Send a text message2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet1": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update row in sheet": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "timezone": "Asia/Kolkata",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "3c52858c-9a91-4f0f-9d14-0773b3687f83",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "YOUR N8N instanceId"
+  },
+  "id": "YOUR ID",
+  "tags": []
+}
